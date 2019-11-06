@@ -72,7 +72,7 @@ class AvgPoolWithWeights(tf.keras.layers.AveragePooling2D):
         return res
 
 
-def build_model(inputs, dropout_rate):
+def build_lenet5(inputs, dropout_rate, n_outputs=10):
     
     with tf.name_scope('pad-inputs'):
         res = tf.keras.layers.Lambda(
@@ -114,19 +114,62 @@ def build_model(inputs, dropout_rate):
                                      kernel_size=5,
                                      padding='valid',
                                      activation=tf.nn.tanh)(res)
+    with tf.name_scope('dropout3'):
+        res = tf.keras.layers.Dropout(dropout_rate)(res)
     
     with tf.name_scope('fc1'):
         res = tf.keras.layers.Flatten()(res)
         res = tf.keras.layers.Dense(units=84,
                                     activation=tf.nn.tanh)(res)
-
-    
-    with tf.name_scope('dropout3'):
-        res = tf.keras.layers.Dropout(dropout_rate)(res)
     
     with tf.name_scope('logits'):
-        logits = tf.keras.layers.Dense(units=10)(res)
-        outputs = RBFActivation(units=10)(logits)
+        outputs = RBFActivation(units=n_outputs)(res)
 
     model = tf.keras.models.Model(inputs=[inputs], outputs=[outputs])
+    return model
+
+def build_simple_conv_net(inputs, dropout_rate, n_outputs=10):
+    
+    with tf.name_scope('pad-inputs'):
+        res = tf.keras.layers.Lambda(
+            lambda x: tf.pad(inputs, [[0, 0], [2, 2], [2, 2], [0, 0]]))(inputs)
+
+    with tf.name_scope('conv1'):
+        res = tf.keras.layers.Conv2D(filters=6,
+                                     kernel_size=5,
+                                     strides=(1, 1),
+                                     padding='VALID',
+                                     activation=tf.nn.tanh)(res)
+
+    with tf.name_scope('avg-pool-with-weights1'):
+        res = AvgPoolWithWeights(pool_size=(2, 2),
+                                 strides=(2, 2),
+                                 padding='valid',
+                                 activation=tf.nn.tanh)(res)
+
+    with tf.name_scope('dropout1'):
+        res = tf.keras.layers.Dropout(dropout_rate)(res)
+        
+    with tf.name_scope('conv2'):
+        res = tf.keras.layers.Conv2D(filters=16,
+                                     kernel_size=5,
+                                     padding='valid',
+                                     activation=tf.nn.tanh)(res)
+    
+    with tf.name_scope('avg-pool-with-weights2'):
+        res = AvgPoolWithWeights(pool_size=(2, 2),
+                                 strides=(2, 2),
+                                 padding='valid',
+                                 activation=tf.nn.tanh)(res)
+
+    with tf.name_scope('dropout2'):
+        res = tf.keras.layers.Dropout(dropout_rate)(res)
+    
+    
+    with tf.name_scope('logits'):
+        res = tf.keras.layers.Flatten()(res)
+        res = tf.keras.layers.Dense(units=n_outputs,
+                                    activation=None)(res)
+
+    model = tf.keras.models.Model(inputs=[inputs], outputs=[res])
     return model
